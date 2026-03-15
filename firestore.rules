@@ -1,0 +1,97 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - email: string (required) - User's institutional email
+//   - name: string (required) - User's full name
+//   - role: string (required, enum: ['admin', 'user']) - System role
+//   - user_type: string (optional, enum: ['student', 'faculty', 'admin']) - User classification
+//   - college_office: string (optional) - User's department
+//   - is_blocked: boolean (optional) - Whether the user is blocked
+//   - createdAt: timestamp (optional) - When the user was first created
+//
+// Collection: visits
+// Document ID: auto-generated
+// Fields:
+//   - user_email: string (required) - Email of the visitor
+//   - user_name: string (required) - Name of the visitor
+//   - user_type: string (required) - Type of the visitor
+//   - college_office: string (required) - Office of the visitor
+//   - reason: string (required) - Reason for visit
+//   - timestamp: timestamp (required) - Time of visit
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.token.email == "eunice.mabasa@neu.edu.ph" && request.auth.token.email_verified == true ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+    }
+
+    function isValidUser(data) {
+      let allowedFields = ['email', 'name', 'role', 'user_type', 'college_office', 'is_blocked', 'createdAt', 'uid', 'visitCount', 'history'];
+      return data.keys().hasAll(['email', 'name', 'role']) &&
+             data.keys().hasOnly(allowedFields) &&
+             data.email is string && 
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.role in ['admin', 'user'] &&
+             (!('user_type' in data) || data.user_type == null || data.user_type in ['student', 'faculty', 'admin', 'user']) &&
+             (!('college_office' in data) || data.college_office == null || (data.college_office is string && data.college_office.size() < 100)) &&
+             (!('is_blocked' in data) || data.is_blocked is bool) &&
+             (!('createdAt' in data) || data.createdAt is string);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (userId == request.auth.uid || isAdmin());
+      
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) &&
+        (request.resource.data.role == 'user' || isAdmin());
+      
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (
+        isAdmin() || 
+        (isOwner(userId) && 
+         request.resource.data.role == resource.data.role && 
+         request.resource.data.is_blocked == resource.data.is_blocked &&
+         request.resource.data.email == resource.data.email)
+      );
+        
+      allow delete: if isAdmin();
+    }
+
+    match /visits/{visitId} {
+      allow read: if isAuthenticated() && (isAdmin() || resource.data.user_email == request.auth.token.email);
+      allow create: if isAuthenticated() && 
+        (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.is_blocked == false);
+      allow update, delete: if isAdmin();
+    }
+    
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}

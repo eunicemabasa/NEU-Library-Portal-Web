@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the library system",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "user_type": { "type": "string", "enum": ["student", "faculty", "admin"] },
+        "college_office": { "type": "string" },
+        "is_blocked": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "name", "role"]
+    },
+    "Visit": {
+      "title": "Visit",
+      "description": "A record of a library visit",
+      "type": "object",
+      "properties": {
+        "user_email": { "type": "string", "format": "email" },
+        "user_name": { "type": "string" },
+        "user_type": { "type": "string" },
+        "college_office": { "type": "string" },
+        "reason": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_email", "reason", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/visits/{visitId}": {
+      "schema": "Visit",
+      "description": "Visit logs"
+    }
+  }
+}
