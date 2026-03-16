@@ -172,14 +172,34 @@ const DashboardWrapper = ({
 
             <div className="space-y-1.5">
               <label className="block text-[10px] font-black uppercase tracking-widest text-white/40 ml-1">College / Office</label>
-              <input 
-                type="text" 
+              <select 
                 value={collegeOffice}
                 onChange={(e) => setCollegeOffice(e.target.value)}
-                placeholder="e.g. College of Engineering"
-                className="w-full px-5 py-4 bg-white/5 rounded-2xl border border-white/10 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all placeholder:text-white/20"
+                className="w-full px-5 py-4 bg-white/5 rounded-2xl border border-white/10 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all text-white"
                 required
-              />
+              >
+                <option value="" disabled className="bg-[#3E2723]">Select College / Office</option>
+                {[
+                  "College of Accountancy",
+                  "College of Agriculture",
+                  "College of Arts and Sciences",
+                  "College of Business Administration",
+                  "College of Communication",
+                  "College of Informatics and Computing Studies",
+                  "College of Criminology",
+                  "College of Education",
+                  "College of Engineering and Architecture",
+                  "College of Medical Technology",
+                  "College of Music",
+                  "College of Nursing",
+                  "College of Physical Therapy",
+                  "College of Respiratory Therapy",
+                  "School of International Relations",
+                  "Others"
+                ].map(college => (
+                  <option key={college} value={college} className="bg-[#3E2723]">{college}</option>
+                ))}
+              </select>
             </div>
 
             <button 
@@ -425,16 +445,19 @@ export default function App() {
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!email.endsWith('@neu.edu.ph') && email !== 'eunice.mabasa@neu.edu.ph') {
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedEmail.endsWith('@neu.edu.ph') && trimmedEmail !== 'eunice.mabasa@neu.edu.ph') {
       setError('Please use your institutional email (@neu.edu.ph)');
       return;
     }
 
     try {
       if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
+        await createUserWithEmailAndPassword(auth, trimmedEmail, trimmedPassword);
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        await signInWithEmailAndPassword(auth, trimmedEmail, trimmedPassword);
       }
     } catch (err: any) {
       switch (err.code) {
