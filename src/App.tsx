@@ -313,10 +313,6 @@ export default function App() {
   const location = useLocation();
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   
   // Profile Setup State
@@ -328,12 +324,13 @@ export default function App() {
   
   const handleRoleSelect = (selectedRole: 'student' | 'faculty' | 'admin') => {
     setError('');
+    const isAdminEmail = currentUser?.email === 'eunice.mabasa@neu.edu.ph' || currentUser?.email === 'jcesperanza@neu.edu.ph';
     if (selectedRole === 'admin') {
-      if (currentUser?.email === 'eunice.mabasa@neu.edu.ph') {
+      if (isAdminEmail) {
         setUserType('admin');
         navigate('/admin-dashboard');
       } else {
-        const msg = 'Access Denied: Only eunice.mabasa@neu.edu.ph can access the Admin dashboard.';
+        const msg = 'Access Denied: Only authorized administrators can access the Admin dashboard.';
         setError(msg);
         alert(msg);
       }
@@ -356,7 +353,7 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        if (!user.email?.endsWith('@neu.edu.ph') && user.email !== 'eunice.mabasa@neu.edu.ph') {
+        if (!user.email?.endsWith('@neu.edu.ph') && user.email !== 'eunice.mabasa@neu.edu.ph' && user.email !== 'jcesperanza@neu.edu.ph') {
           setError('Please use your institutional email (@neu.edu.ph)');
           await signOut(auth);
           setLoading(false);
@@ -379,7 +376,7 @@ export default function App() {
             }
           } else {
             // New User
-            const isDefaultAdmin = user.email === 'eunice.mabasa@neu.edu.ph';
+            const isDefaultAdmin = user.email === 'eunice.mabasa@neu.edu.ph' || user.email === 'jcesperanza@neu.edu.ph';
             const newUser: UserType = {
               uid: user.uid,
               email: user.email!,
@@ -404,7 +401,7 @@ export default function App() {
             }
           }
         } catch (err) {
-          if (user.email === 'eunice.mabasa@neu.edu.ph') {
+          if (user.email === 'eunice.mabasa@neu.edu.ph' || user.email === 'jcesperanza@neu.edu.ph') {
             const fallbackAdmin: UserType = {
               uid: user.uid,
               email: user.email!,
@@ -439,71 +436,6 @@ export default function App() {
       await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
       setError(err.message || 'Login failed');
-    }
-  };
-
-  const handleEmailLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    const trimmedEmail = email.trim();
-    const trimmedPassword = password.trim();
-
-    if (!trimmedEmail.endsWith('@neu.edu.ph') && trimmedEmail !== 'eunice.mabasa@neu.edu.ph') {
-      setError('Please use your institutional email (@neu.edu.ph)');
-      return;
-    }
-
-    try {
-      if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, trimmedEmail, trimmedPassword);
-      } else {
-        await signInWithEmailAndPassword(auth, trimmedEmail, trimmedPassword);
-      }
-    } catch (err: any) {
-      switch (err.code) {
-        case 'auth/user-not-found':
-          setError('No account found with this email. Please Sign Up first.');
-          break;
-        case 'auth/wrong-password':
-        case 'auth/invalid-credential':
-          setError('Incorrect password. Please try again or reset your password.');
-          break;
-        case 'auth/email-already-in-use':
-          setError('This email is already registered. Switching to Sign In...');
-          setTimeout(() => {
-            setIsSignUp(false);
-            setError('');
-          }, 2000);
-          break;
-        case 'auth/weak-password':
-          setError('Password is too weak. Please use at least 6 characters.');
-          break;
-        case 'auth/invalid-email':
-          setError('Invalid email format.');
-          break;
-        case 'auth/operation-not-allowed':
-          setError('Email/Password login is not enabled in Firebase. Please enable it in the console.');
-          break;
-        case 'auth/too-many-requests':
-          setError('Too many failed attempts. Please try again later.');
-          break;
-        default:
-          setError(err.message || 'Authentication failed');
-      }
-    }
-  };
-
-  const handleForgotPassword = async () => {
-    if (!email) {
-      setError('Please enter your email address first.');
-      return;
-    }
-    try {
-      await sendPasswordResetEmail(auth, email);
-      alert('Password reset email sent! Please check your inbox.');
-      setError('');
-    } catch (err: any) {
-      setError(err.message || 'Failed to send reset email');
     }
   };
 
@@ -568,18 +500,27 @@ export default function App() {
     }
   };
 
+  const handleChangeRole = async (uid: string, newRole: 'admin' | 'user') => {
+    try {
+      await setDoc(doc(db, 'users', uid), { role: newRole }, { merge: true });
+      if (uid === currentUser?.uid) {
+        setCurrentUser(prev => prev ? { ...prev, role: newRole } : null);
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
+    }
+  };
+
   const handleLogout = async () => {
     await signOut(auth);
     navigate('/login');
-    setEmail('');
-    setPassword('');
     setReason('');
     setError('');
   };
 
   // Real-time Stats and Data for Admin
   useEffect(() => {
-    if (location.pathname !== '/admin-dashboard' || !currentUser || (currentUser.role !== 'admin' && currentUser.email !== 'eunice.mabasa@neu.edu.ph')) return;
+    if (location.pathname !== '/admin-dashboard' || !currentUser || (currentUser.role !== 'admin' && currentUser.email !== 'eunice.mabasa@neu.edu.ph' && currentUser.email !== 'jcesperanza@neu.edu.ph')) return;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -796,46 +737,11 @@ export default function App() {
                       </motion.div>
                       <h2 className="font-serif text-3xl font-black tracking-tight">New Era University Library</h2>
                       <p className="text-white/60 mt-2 font-medium">
-                        {isSignUp ? 'Create an account to get started' : 'Please sign in to continue'}
+                        Please sign in with your institutional email to continue
                       </p>
                     </div>
 
-                    <form onSubmit={handleEmailLogin} className="space-y-5">
-                      <div className="space-y-1.5">
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-white/40 ml-1">Institutional Email</label>
-                        <div className="relative">
-                          <User className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={18} />
-                          <input 
-                            type="email" 
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="student@neu.edu.ph"
-                            className="w-full pl-12 pr-4 py-4 bg-white/5 rounded-2xl border border-white/10 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all placeholder:text-white/20"
-                            required
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-white/40 ml-1">Password</label>
-                        <div className="relative">
-                          <input 
-                            type={showPassword ? "text" : "password"} 
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
-                            className="w-full px-4 py-4 bg-white/5 rounded-2xl border border-white/10 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all placeholder:text-white/20"
-                            required
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors"
-                          >
-                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                          </button>
-                        </div>
-                      </div>
-
+                    <div className="space-y-6">
                       {error && (
                         <motion.div 
                           initial={{ opacity: 0, x: -10 }}
@@ -848,50 +754,18 @@ export default function App() {
                       )}
 
                       <button 
-                        type="submit"
-                        className="w-full bg-[#8D6E63] text-white py-4 rounded-2xl font-black text-lg hover:bg-[#A1887F] transition-all shadow-xl active:scale-95"
+                        type="button"
+                        onClick={handleGoogleLogin}
+                        className="w-full bg-white text-[#3E2723] py-5 rounded-2xl font-black text-lg hover:bg-white/90 transition-all flex items-center justify-center gap-4 active:scale-95 shadow-xl"
                       >
-                        {isSignUp ? 'Create Account' : 'Sign In'}
+                        <img src="https://www.google.com/favicon.ico" className="w-6 h-6" alt="Google" />
+                        Continue with Google
                       </button>
 
-                      <div className="text-center space-y-4">
-                        <div className="flex flex-col gap-2">
-                          <button 
-                            type="button"
-                            onClick={() => setIsSignUp(!isSignUp)}
-                            className="text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors"
-                          >
-                            {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
-                          </button>
-                          {!isSignUp && (
-                            <button 
-                              type="button"
-                              onClick={handleForgotPassword}
-                              className="text-[10px] font-black uppercase tracking-widest text-[#A1887F] hover:text-white transition-colors"
-                            >
-                              Forgot Password?
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="relative py-4">
-                        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10"></div></div>
-                        <div className="relative flex justify-center text-[10px] uppercase font-black tracking-widest"><span className="bg-[#3E2723] px-3 text-white/40">Or</span></div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <p className="text-[10px] text-white/30 text-center uppercase font-black tracking-widest">Returning User?</p>
-                        <button 
-                          type="button"
-                          onClick={handleGoogleLogin}
-                          className="w-full bg-white text-[#3E2723] py-4 rounded-2xl font-black hover:bg-white/90 transition-all flex items-center justify-center gap-3 active:scale-95 shadow-xl"
-                        >
-                          <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-                          Continue with Google
-                        </button>
-                      </div>
-                    </form>
+                      <p className="text-[10px] text-white/30 text-center uppercase font-black tracking-[0.2em] leading-relaxed">
+                        Access restricted to institutional <br /> @neu.edu.ph accounts only
+                      </p>
+                    </div>
                   </div>
                 </motion.div>
               )
@@ -987,7 +861,7 @@ export default function App() {
             } />
             
             <Route path="/admin-dashboard" element={
-              (!currentUser || (currentUser.role !== 'admin' && currentUser.email !== 'eunice.mabasa@neu.edu.ph')) ? <Navigate to="/role-selection" /> : (
+              (!currentUser || (currentUser.role !== 'admin' && currentUser.email !== 'eunice.mabasa@neu.edu.ph' && currentUser.email !== 'jcesperanza@neu.edu.ph')) ? <Navigate to="/role-selection" /> : (
                 <motion.div 
                   key="admin"
                   initial={{ opacity: 0 }}
@@ -1139,26 +1013,39 @@ export default function App() {
                       <div className="bg-white/5 backdrop-blur-xl rounded-[2.5rem] border border-white/10 shadow-xl overflow-hidden">
                         <div className="divide-y divide-white/5">
                           {allUsers.filter(u => 
-                            u.role !== 'admin' && 
                             (u.name?.toLowerCase().includes(adminSearch.toLowerCase()) || 
                              u.email?.toLowerCase().includes(adminSearch.toLowerCase()))
                           ).map((user) => (
-                            <div key={user.email} className="p-6 flex justify-between items-center hover:bg-white/5 transition-all group">
-                              <div className="min-w-0">
-                                <p className="font-serif font-black tracking-tight text-white group-hover:text-[#D7CCC8] transition-colors truncate">{user.name}</p>
-                                <p className="text-[10px] text-white/30 font-bold uppercase tracking-widest truncate">{user.email}</p>
+                            <div key={user.uid} className="p-6 flex flex-col gap-4 hover:bg-white/5 transition-all group">
+                              <div className="flex justify-between items-center">
+                                <div className="min-w-0">
+                                  <p className="font-serif font-black tracking-tight text-white group-hover:text-[#D7CCC8] transition-colors truncate">{user.name}</p>
+                                  <p className="text-[10px] text-white/30 font-bold uppercase tracking-widest truncate">{user.email}</p>
+                                </div>
+                                <div className="flex gap-2">
+                                  {user.email !== 'eunice.mabasa@neu.edu.ph' && user.email !== 'jcesperanza@neu.edu.ph' && (
+                                    <button
+                                      onClick={() => handleBlockUser(user.uid, !user.is_blocked)}
+                                      className={`p-3 rounded-2xl transition-all active:scale-90 ${
+                                        user.is_blocked 
+                                          ? 'bg-red-500/20 text-red-200 border border-red-500/30' 
+                                          : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'
+                                      }`}
+                                      title={user.is_blocked ? 'Unblock User' : 'Block User'}
+                                    >
+                                      {user.is_blocked ? <Unlock size={20} /> : <Ban size={20} />}
+                                    </button>
+                                  )}
+                                  <select
+                                    value={user.role}
+                                    onChange={(e) => handleChangeRole(user.uid, e.target.value as any)}
+                                    className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white focus:outline-none focus:ring-2 focus:ring-[#8D6E63]"
+                                  >
+                                    <option value="user" className="bg-[#3E2723]">User</option>
+                                    <option value="admin" className="bg-[#3E2723]">Admin</option>
+                                  </select>
+                                </div>
                               </div>
-                              <button
-                                onClick={() => handleBlockUser(user.uid, !user.is_blocked)}
-                                className={`p-3 rounded-2xl transition-all active:scale-90 ${
-                                  user.is_blocked 
-                                    ? 'bg-red-500/20 text-red-200 border border-red-500/30' 
-                                    : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'
-                                }`}
-                                title={user.is_blocked ? 'Unblock User' : 'Block User'}
-                              >
-                                {user.is_blocked ? <Unlock size={20} /> : <Ban size={20} />}
-                              </button>
                             </div>
                           ))}
                         </div>
