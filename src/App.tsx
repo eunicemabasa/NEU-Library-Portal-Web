@@ -325,6 +325,7 @@ export default function App() {
   const handleRoleSelect = (selectedRole: 'student' | 'faculty' | 'admin') => {
     setError('');
     const isAdminEmail = currentUser?.email === 'eunice.mabasa@neu.edu.ph' || currentUser?.email === 'jcesperanza@neu.edu.ph';
+    
     if (selectedRole === 'admin') {
       if (isAdminEmail) {
         setUserType('admin');
@@ -334,12 +335,18 @@ export default function App() {
         setError(msg);
         alert(msg);
       }
+    } else if (selectedRole === 'faculty') {
+      if (isAdminEmail) {
+        setUserType('faculty');
+        navigate('/faculty-dashboard');
+      } else {
+        const msg = 'Access Denied: Only authorized personnel can access the Faculty dashboard.';
+        setError(msg);
+        alert(msg);
+      }
     } else if (selectedRole === 'student') {
       setUserType('student');
       navigate('/student-dashboard');
-    } else if (selectedRole === 'faculty') {
-      setUserType('faculty');
-      navigate('/faculty-dashboard');
     }
   };
 
@@ -789,9 +796,9 @@ export default function App() {
                     <div className="space-y-4">
                       {[
                         { id: 'student', label: 'Student', icon: GraduationCap, color: 'bg-blue-500/20' },
-                        { id: 'faculty', label: 'Faculty', icon: BookOpen, color: 'bg-emerald-500/20' },
-                        { id: 'admin', label: 'Admin', icon: Shield, color: 'bg-amber-500/20' }
-                      ].map((role) => (
+                        { id: 'faculty', label: 'Faculty', icon: BookOpen, color: 'bg-emerald-500/20', restricted: true },
+                        { id: 'admin', label: 'Admin', icon: Shield, color: 'bg-amber-500/20', restricted: true }
+                      ].filter(role => !role.restricted || (currentUser?.email === 'eunice.mabasa@neu.edu.ph' || currentUser?.email === 'jcesperanza@neu.edu.ph')).map((role) => (
                         <button
                           key={role.id}
                           onClick={() => handleRoleSelect(role.id as any)}
@@ -846,18 +853,20 @@ export default function App() {
               />
             } />
             <Route path="/faculty-dashboard" element={
-              <DashboardWrapper 
-                currentUser={currentUser}
-                userType={userType}
-                setUserType={setUserType}
-                collegeOffice={collegeOffice}
-                setCollegeOffice={setCollegeOffice}
-                handleProfileSetup={handleProfileSetup}
-                handleLogVisit={handleLogVisit}
-                reason={reason}
-                setReason={setReason}
-                navigate={navigate}
-              />
+              (!currentUser || (currentUser.role !== 'admin' && currentUser.email !== 'eunice.mabasa@neu.edu.ph' && currentUser.email !== 'jcesperanza@neu.edu.ph')) ? <Navigate to="/role-selection" /> : (
+                <DashboardWrapper 
+                  currentUser={currentUser}
+                  userType={userType}
+                  setUserType={setUserType}
+                  collegeOffice={collegeOffice}
+                  setCollegeOffice={setCollegeOffice}
+                  handleProfileSetup={handleProfileSetup}
+                  handleLogVisit={handleLogVisit}
+                  reason={reason}
+                  setReason={setReason}
+                  navigate={navigate}
+                />
+              )
             } />
             
             <Route path="/admin-dashboard" element={
