@@ -1,6 +1,6 @@
 # 📚 NEU Library Portal Web
 
-🌐 **Live Website:** (https://neu-library-portal-web.vercel.app/login)  
+🌐 **Live Website:** https://neu-library-portal-web.vercel.app/login  
 
 ---
 
